@@ -93,17 +93,20 @@ export default function MyTasksPage() {
   // On mount, get current session and load accepted tasks.
   useEffect(() => {
     const init = async () => {
+      // Check for an existing user session.
       const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
-        const userId = sessionData.session.user.id;
-        setCurrentUserId(userId);
-        await fetchAcceptedTasks(userId);
-      } else {
-        setError("You must be logged in to use this feature.");
+      if (!sessionData?.session) {
+        // If there is no session, redirect to the sign-in page.
+        router.push('/signin');
+        return;
       }
+      // If session exists, continue to load the user's tasks.
+      const userId = sessionData.session.user.id;
+      setCurrentUserId(userId);
+      await fetchAcceptedTasks(userId);
     };
     init();
-  }, []);
+  }, [router]);
 
   // Fetch accepted tasks from GeneratedTasks table.
   const fetchAcceptedTasks = async (userId: string) => {
@@ -273,9 +276,9 @@ export default function MyTasksPage() {
         setCompleting(false);
         return;
       }
-      const { data: { publicUrl } } = supabase.storage
-        .from('task-proofs')
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('task-proofs').getPublicUrl(fileName);
       proofUrl = publicUrl;
     }
     // Compute duration automatically: difference (in minutes) between now and when the task was created.
