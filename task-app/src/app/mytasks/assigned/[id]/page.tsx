@@ -70,7 +70,9 @@ export default function AssignedTaskDetailPage() {
 
   // Fetch current user.
   const fetchCurrentUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session) {
       setCurrentUserId(session.user.id);
     }
@@ -83,7 +85,8 @@ export default function AssignedTaskDetailPage() {
     // Select the raw assigned_by value and join reviewer profile as "reviewer"
     const { data, error } = await supabase
       .from('assignments')
-      .select(`
+      .select(
+        `
         id,
         created_at,
         difficulty,
@@ -98,15 +101,24 @@ export default function AssignedTaskDetailPage() {
         review_comment,
         is_approved,
         reviewer:profiles(user_id, username, avatar_url)
-      `)
+        `
+      )
       .eq('id', id)
       .maybeSingle();
+
     if (error) {
       setError(error.message);
     } else if (!data) {
       setError('Task not found.');
     } else {
-      setTask(data);
+      // Normalize the reviewer field:
+      // If data.reviewer is an array, take its first element.
+      const normalizedReviewer =
+        data.reviewer && Array.isArray(data.reviewer)
+          ? data.reviewer[0]
+          : data.reviewer;
+      const normalizedData = { ...data, reviewer: normalizedReviewer };
+      setTask(normalizedData);
     }
     setLoading(false);
   };
@@ -144,9 +156,9 @@ export default function AssignedTaskDetailPage() {
         setUploading(false);
         return;
       }
-      const { data: { publicUrl } } = supabase.storage
-        .from('task-proofs')
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('task-proofs').getPublicUrl(fileName);
       proofUrl = publicUrl;
       extraPoints = 25;
     }
@@ -169,7 +181,7 @@ export default function AssignedTaskDetailPage() {
         status: 'submitted',
         points: updatedPoints,
         review_comment: null, // Clear previous review comment
-        is_approved: false,   // Reset approval flag
+        is_approved: false, // Reset approval flag
       })
       .eq('id', task.id);
     if (error) {
@@ -178,7 +190,8 @@ export default function AssignedTaskDetailPage() {
       setToast('Task submitted for review! Extra 25 points awarded for proof!');
       // Insert a review notification for the reviewer.
       // The notification target is the user whose UUID is in assigned_by.
-      const reviewerId = task.assigned_by || (task.reviewer ? task.reviewer.user_id : null);
+      const reviewerId =
+        task.assigned_by || (task.reviewer ? task.reviewer.user_id : null);
       console.log('Reviewer ID for notification:', reviewerId);
       if (reviewerId) {
         const notificationPayload = {
@@ -198,7 +211,9 @@ export default function AssignedTaskDetailPage() {
           console.log('Notification inserted:', notificationPayload);
         }
       } else {
-        console.error('No reviewer ID found for notification. Ensure the assignment record has a valid assigned_by value.');
+        console.error(
+          'No reviewer ID found for notification. Ensure the assignment record has a valid assigned_by value.'
+        );
         setToast('Error: Reviewer information missing. Notification not sent.');
       }
       // Refresh the assignment data.
@@ -267,10 +282,7 @@ export default function AssignedTaskDetailPage() {
           Waiting for review...
         </div>
       );
-    } else if (
-      task?.status.toLowerCase() === 'declined' ||
-      task?.status.toLowerCase() === 'completed'
-    ) {
+    } else if (task?.status.toLowerCase() === 'declined' || task?.status.toLowerCase() === 'completed') {
       return (
         <div className="flex flex-col items-center">
           {!showResubmitForm ? (
