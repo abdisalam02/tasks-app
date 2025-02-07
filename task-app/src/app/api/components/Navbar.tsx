@@ -133,7 +133,7 @@ export default function Navbar() {
                     <Link href="/users">Users</Link>
                   </li>
                   <li onClick={closeDropdown}>
-                    <Link href="/mytasks">Tasks</Link>
+                    <Link href="/mytasks">MyTasks</Link>
                   </li>
                   <li onClick={closeDropdown}>
                     <Link href="/messages">Messages</Link>
@@ -180,7 +180,7 @@ export default function Navbar() {
               <Link href="/users">Users</Link>
             </li>
             <li onClick={closeDropdown}>
-              <Link href="/mytasks">Tasks</Link>
+              <Link href="/mytasks">MyTasks</Link>
             </li>
             <li onClick={closeDropdown}>
               <Link href="/messages">Messages</Link>
