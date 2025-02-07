@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../../lib/supabaseClient';
-import { FaGamepad, FaBell, FaEnvelope } from 'react-icons/fa';
+import { FaGamepad, FaBell, FaComments } from 'react-icons/fa'; // Replaced FaEnvelope with FaComments
 import ThemeRandomizer from '../../api/components/ThemeRandomizer';
 
 interface ProfileData {
@@ -73,7 +73,7 @@ export default function Navbar() {
     router.push('/signin');
   };
 
-  // Helper to close any open dropdown menu
+  // Helper to close any open dropdown menu (for links that should close it)
   const closeDropdown = () => {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -138,7 +138,8 @@ export default function Navbar() {
                   <li onClick={closeDropdown}>
                     <Link href="/messages">Messages</Link>
                   </li>
-                  <li onClick={closeDropdown}>
+                  {/* ThemeRandomizer item WITHOUT closeDropdown */}
+                  <li>
                     <ThemeRandomizer />
                   </li>
                 </>
@@ -154,13 +155,17 @@ export default function Navbar() {
         {/* Branding */}
         <Link
           href="/"
-          className="btn btn-ghost normal-case text-2xl flex items-center gap-2"
+          className="btn btn-ghost normal-case flex items-center gap-2"
         >
           <FaGamepad className="text-4xl text-yellow-400 animate-bounce" />
-          <span className="hidden lg:inline font-bold tracking-wider">
+          {/* Desktop branding */}
+          <span className="hidden lg:inline font-bold tracking-wider text-2xl">
             I'm Bored App
           </span>
-          <span className="lg:hidden font-bold tracking-wider">Bored</span>
+          {/* Mobile branding: reduced text size */}
+          <span className="lg:hidden font-bold tracking-wider text-xl">
+            Bored
+          </span>
         </Link>
       </div>
 
@@ -180,7 +185,8 @@ export default function Navbar() {
             <li onClick={closeDropdown}>
               <Link href="/messages">Messages</Link>
             </li>
-            <li onClick={closeDropdown}>
+            {/* ThemeRandomizer item WITHOUT closeDropdown */}
+            <li>
               <ThemeRandomizer />
             </li>
           </ul>
@@ -188,12 +194,12 @@ export default function Navbar() {
       )}
 
       {/* Navbar End: Profile & Notification Icons */}
-      <div className="navbar-end flex items-center space-x-2">
+      <div className="navbar-end flex items-center space-x-1 lg:space-x-2">
         {session && session.user ? (
           <>
             {/* Messaging icon/link */}
             <Link href="/messages" className="btn btn-ghost btn-circle">
-              <FaEnvelope className="h-6 w-6" />
+              <FaComments className="h-6 w-6" />
             </Link>
             {/* Notifications icon with dot */}
             <Link href="/notifications" className="btn btn-ghost btn-circle relative">
@@ -218,7 +224,7 @@ export default function Navbar() {
                     <span className="justify-between">Profile</span>
                   </Link>
                 </li>
-                <li onClick={() => { closeDropdown(); handleLogout(); }}>
+                <li onClick={() => { closeDropdown(); handleLogout(); }} >
                   <button>Logout</button>
                 </li>
               </ul>
