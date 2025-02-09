@@ -282,7 +282,10 @@ export default function AssignedTaskDetailPage() {
           Waiting for review...
         </div>
       );
-    } else if (task?.status.toLowerCase() === 'declined' || task?.status.toLowerCase() === 'completed') {
+    } else if (
+      task?.status.toLowerCase() === 'declined' ||
+      task?.status.toLowerCase() === 'completed'
+    ) {
       return (
         <div className="flex flex-col items-center">
           {!showResubmitForm ? (
@@ -401,13 +404,31 @@ export default function AssignedTaskDetailPage() {
                   </div>
                 )}
                 {task.review_comment && (
-                  <div className="mt-4 p-2 border border-dashed border-red-500 rounded">
-                    <p className="text-sm italic text-red-500">
+                  <div
+                    className={`mt-4 p-2 border border-dashed rounded ${
+                      task.status.toLowerCase() === 'declined'
+                        ? 'border-red-500'
+                        : task.status.toLowerCase() === 'completed'
+                        ? 'border-green-500'
+                        : ''
+                    }`}
+                  >
+                    <p
+                      className={`text-sm italic ${
+                        task.status.toLowerCase() === 'declined'
+                          ? 'text-red-500'
+                          : task.status.toLowerCase() === 'completed'
+                          ? 'text-green-500'
+                          : ''
+                      }`}
+                    >
                       Review Comment: {task.review_comment}
                     </p>
                   </div>
                 )}
-                {task.status.toLowerCase() === 'completed' && task.proof_url && (
+                {((task.status.toLowerCase() === 'completed' ||
+                  task.status.toLowerCase() === 'declined') &&
+                  task.proof_url) && (
                   <div className="mt-6">
                     <p className="font-bold text-accent text-lg">Proof Submitted:</p>
                     <img

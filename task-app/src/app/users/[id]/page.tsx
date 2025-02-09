@@ -21,12 +21,14 @@ interface Assignment {
   proof_url?: string;
   comment?: string;
   task_description: string;
-  points?: number; // New property
-  assigned_by?: {
+  points?: number;
+  // For assignments we assume the join works and returns either an object or a string.
+  assigned_by?: { 
     username?: string;
     avatar_url?: string;
-  };
+  } | string;
   status?: string;
+  review_comment?: string;
 }
 
 interface GeneratedTask {
@@ -38,6 +40,11 @@ interface GeneratedTask {
   comment?: string;
   task_description: string;
   status?: string;
+  // In our table, assigned_by is stored as a varchar.
+  // For generated tasks, it can be "application" or a user ID.
+  assigned_by?: string;
+  // We removed review_comment because it does not exist in the table.
+  // review_comment?: string;
 }
 
 export default function UserDetailPage() {
@@ -67,6 +74,9 @@ export default function UserDetailPage() {
   // State for full-screen image (for both profile and proof)
   const [showImageModal, setShowImageModal] = useState<boolean>(false);
   const [imageToShow, setImageToShow] = useState<string>('');
+
+  // For generated tasks, if assigned_by is not "application", we need to fetch the profile.
+  const [assignedByProfile, setAssignedByProfile] = useState<{ username?: string; avatar_url?: string } | null>(null);
 
   // Returns a larger difficulty icon for gamified styling.
   function DifficultyIcon({ difficulty }: { difficulty: string }) {
@@ -105,7 +115,7 @@ export default function UserDetailPage() {
   const fetchAssignments = async () => {
     const { data, error } = await supabase
       .from('assignments')
-      .select('*, assigned_by:profiles(username, avatar_url)')
+      .select('*, assigned_by:profiles(username, avatar_url), review_comment')
       .eq('assigned_to', id)
       .order('created_at', { ascending: false });
     if (error) {
@@ -116,7 +126,7 @@ export default function UserDetailPage() {
     }
   };
 
-  // Fetch generated tasks.
+  // Fetch generated tasks WITHOUT trying to select a non-existent column.
   const fetchGeneratedTasks = async () => {
     const { data, error } = await supabase
       .from('GeneratedTasks')
@@ -131,13 +141,32 @@ export default function UserDetailPage() {
     }
   };
 
-  useEffect(() => {
-    if (id) {
-      fetchProfile();
-      fetchAssignments();
-      fetchGeneratedTasks();
+  // When viewing a task, if it is a generated task and its assigned_by is not "application",
+  // fetch the profile for that user ID.
+  const fetchAssignedByProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!error && data) {
+      setAssignedByProfile(data);
+    } else {
+      setAssignedByProfile(null);
     }
-  }, [id]);
+  };
+
+  // When a task is clicked, set it as selected and (if needed) fetch assigned_by profile.
+  const handleViewTask = (task: Assignment | GeneratedTask) => {
+    setSelectedTask(task);
+    setShowTaskModal(true);
+    // Reset any previous assignedByProfile value.
+    setAssignedByProfile(null);
+    // For generated tasks, assigned_by is stored as a string.
+    if (typeof task.assigned_by === 'string' && task.assigned_by !== 'application') {
+      fetchAssignedByProfile(task.assigned_by);
+    }
+  };
 
   // Mapping for points based on difficulty.
   const difficultyPoints: Record<string, number> = {
@@ -175,17 +204,16 @@ export default function UserDetailPage() {
           difficulty,
           duration: finalDuration,
           comment,
-          points, // New points column inserted
+          points,
         },
       ]);
     if (error) {
       setError(error.message);
     } else {
       // Insert a notification for the recipient.
-      // The notification uses the sender's id (assignedBy) and a friendly message.
       const notificationPayload = {
-        user_id: id, // Recipient (the user whose detail page we're viewing)
-        sender_id: assignedBy, // The current user assigning the task
+        user_id: id,
+        sender_id: assignedBy,
         message: `You have been assigned a new challenge worth ${points} points!`,
         is_read: false,
       };
@@ -209,12 +237,6 @@ export default function UserDetailPage() {
     setAssigning(false);
   };
 
-  // Handler for viewing a task's details.
-  const handleViewTask = (task: Assignment | GeneratedTask) => {
-    setSelectedTask(task);
-    setShowTaskModal(true);
-  };
-
   // Auto-hide toast.
   useEffect(() => {
     if (toast) {
@@ -222,6 +244,14 @@ export default function UserDetailPage() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  useEffect(() => {
+    if (id) {
+      fetchProfile();
+      fetchAssignments();
+      fetchGeneratedTasks();
+    }
+  }, [id]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6">
@@ -612,19 +642,46 @@ export default function UserDetailPage() {
                 <span className="badge badge-secondary text-lg capitalize">
                   {selectedTask.difficulty}
                 </span>
-                {'assigned_by' in selectedTask && selectedTask.assigned_by && (
-                  <div className="flex items-center gap-2">
-                    {selectedTask.assigned_by.avatar_url && (
-                      <img
-                        src={selectedTask.assigned_by.avatar_url}
-                        alt="Assigned By"
-                        className="w-8 h-8 rounded-full"
-                      />
-                    )}
+                {/* Display Assigned By information */}
+                {typeof selectedTask.assigned_by === "string" ? (
+                  selectedTask.assigned_by === "application" ? (
                     <span className="badge badge-warning text-lg">
-                      Assigned By: {selectedTask.assigned_by.username || 'Unknown'}
+                      Assigned By: Application
                     </span>
-                  </div>
+                  ) : assignedByProfile ? (
+                    <div className="flex items-center gap-2">
+                      {assignedByProfile.avatar_url && (
+                        <img
+                          src={assignedByProfile.avatar_url}
+                          alt="Assigned By"
+                          className="w-8 h-8 rounded-full"
+                        />
+                      )}
+                      <span className="badge badge-warning text-lg">
+                        Assigned By: {assignedByProfile.username || 'Unknown'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="badge badge-warning text-lg">
+                      Loading Assigned By...
+                    </span>
+                  )
+                ) : (
+                  // For assignments where the join worked.
+                  typeof selectedTask.assigned_by === "object" && selectedTask.assigned_by ? (
+                    <div className="flex items-center gap-2">
+                      {selectedTask.assigned_by.avatar_url && (
+                        <img
+                          src={selectedTask.assigned_by.avatar_url}
+                          alt="Assigned By"
+                          className="w-8 h-8 rounded-full"
+                        />
+                      )}
+                      <span className="badge badge-warning text-lg">
+                        Assigned By: {selectedTask.assigned_by.username || 'Unknown'}
+                      </span>
+                    </div>
+                  ) : null
                 )}
               </div>
             </div>
@@ -647,7 +704,17 @@ export default function UserDetailPage() {
                 <DifficultyIcon difficulty={selectedTask.difficulty} />
               </div>
             </div>
-            {selectedTask.status === 'completed' && selectedTask.proof_url && (
+            {/* If review comment exists, display it */}
+            {selectedTask.review_comment && (
+              <div className="mt-6">
+                <h3 className="text-xl font-bold text-accent">Review Comment:</h3>
+                <p className="mt-2">
+                  {selectedTask.review_comment}
+                </p>
+              </div>
+            )}
+            {/* If proof is provided, display clickable image */}
+            {selectedTask.proof_url && (
               <div className="mt-6">
                 <h3 className="text-xl font-bold text-accent">Proof Submitted:</h3>
                 <img
